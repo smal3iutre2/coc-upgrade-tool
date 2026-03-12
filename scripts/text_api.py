@@ -5,27 +5,46 @@
 @File    : text_api.py
 @Description : 
 """
+import json
+import os
 import urllib.parse
-
 import requests
+from dotenv import load_dotenv
 
-TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiIsImtpZCI6IjI4YTMxOGY3LTAwMDAtYTFlYi03ZmExLTJjNzQzM2M2Y2NhNSJ9.eyJpc3MiOiJzdXBlcmNlbGwiLCJhdWQiOiJzdXBlcmNlbGw6Z2FtZWFwaSIsImp0aSI6ImUzNTVjNmRhLTA3MTctNGQzZi1hZGVmLWNkYTE5ZDIyZGU3ZiIsImlhdCI6MTc3MzI5NjQyNywic3ViIjoiZGV2ZWxvcGVyL2M4M2ZjODZiLTc1N2Et ZWQ0Mi1iNTc0LTU3NjMwNDhlOWI4MiIsInNjb3BlcyI6WyJjbGFzaCJdLCJsaW1pdHMiOlt7InRpZXIiOiJkZXZlbG9wZXIvc2lsdmVyIiwidHlwZSI6InRocm90dGxpbmcifSx7ImNpZHJzIjpbIjM1LjE0NC42OC4xMzkiXSwidHlwZSI6ImNsaWVudCJ9XX0.4Yyt4iwnleZfG7_UCbUL_7j1YwJ-MSkgPpSwijt1xywheYtqqlllUXyBxc3FTaPsjxYQBkxGh1RDbCp_G9Iglg'
-player_tag = '#GV8PJLQQ8'
-api_url = f'https://api.clashofclans.com/v1/players/{urllib.parse.quote(player_tag)}'
-
-headers = {
-    'Authorization': f'Bearer {TOKEN}'
-}
+BASE_URL = "https://api.clashofclans.com/v1"
 
 
-def test() -> dict:
-    resp: requests.Response = requests.get(url=api_url, headers=headers)
-    assert resp is not None and resp.status_code == 200, f'request failed'
+def build_player_url(player_tag: str) -> str:
+    return f"{BASE_URL}/players/{urllib.parse.quote(player_tag)}"
+
+
+def get_headers(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def fetch_player(player_tag: str, token: str) -> dict:
+    url = build_player_url(player_tag)
+    resp = requests.get(url=url, headers=get_headers(token), timeout=10)
+    resp.raise_for_status()
     return resp.json()
 
 
-if __name__ == '__main__':
-    print(api_url)
-    res = test()
-    for k, v in res.items():
-        print(k, v)
+def dump_date(d: dict, filename: str = "player_raw.json") -> None:
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)
+
+
+if __name__ == "__main__":
+    load_dotenv()
+    token = os.getenv("COC_API_TOKEN")
+    player_tag = os.getenv("COC_PLAYER_TAG")
+
+    if not token:
+        raise RuntimeError("COC_API_TOKEN is missing")
+    if not player_tag:
+        raise RuntimeError("COC_PLAYER_TAG is missing")
+
+    data = fetch_player(player_tag, token)
+    dump_date(data)
+    print("townHallLevel:", data.get("townHallLevel"))
+    print("heroes:", [f'{h["name"]}:{h["level"]}' for h in data.get("heroes", [])])
